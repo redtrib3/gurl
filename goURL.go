@@ -9,6 +9,7 @@ import (
     "os"
     "encoding/json"
     "bytes"
+    "sort"
 )
 
 
@@ -29,10 +30,11 @@ func isJson(jstring string) bool {
     return json.Unmarshal([]byte(jstring), &js) == nil
 }
 
-func Request(url, reqtype, data, outfile string, headers []string, prettyPrint bool){
+func Request(url, reqtype, data, outfile string, headers []string, prettyPrint, rawreq bool){
 
     var req *http.Request
     var err error
+    var reqData *strings.Reader
     
     // starting client
     client := &http.Client{
@@ -47,19 +49,32 @@ func Request(url, reqtype, data, outfile string, headers []string, prettyPrint b
         
     } else if reqtype == "POST" {
         //creating POST request
+        reqData = strings.NewReader(data)
+        req, err = http.NewRequest("POST", url, reqData)
 
-        postData := strings.NewReader(data)
-        req, err = http.NewRequest("POST", url, postData)
+    } else if reqtype == "PUT" {
+        //creating put request(very similar to POST)
+        reqData = strings.NewReader(data)
+        req, err = http.NewRequest("PUT", url, reqData)
+        
+    } else if reqtype == "HEAD" {
+        req, err = http.NewRequest("HEAD", url, nil)
+    
+    } else if reqtype == "DELETE" {
+        req, err = http.NewRequest("DELETE", url, nil)
+    
+    } else if reqtype == "PATCH" {
+        reqData = strings.NewReader(data)
+        req, err = http.NewRequest("PATCH", url, reqData)
 
     } else {    
         fmt.Println("[gURL] Unknown request type.")
-        os.Exit(0)
+        return
     }
     
     if err != nil{
             fmt.Println("[gURL] Error occured: ",err)
     }
-
 
     //set headers
     if isJson(data){
@@ -71,20 +86,24 @@ func Request(url, reqtype, data, outfile string, headers []string, prettyPrint b
     req.Header.Set("User-Agent","gURL/0.0.1")
     req.Header.Set("Accept","*/*")    
     
-    // set custom headers if provided.
-    for _,header := range headers{
-        header = strings.ReplaceAll(header," ","")
-        headAndValue := strings.Split(header, ":")
-        
-        if len(headAndValue) >= 2 && headAndValue[0] != ""{
-            req.Header.Set(headAndValue[0], headAndValue[1])
-        } else{
-            fmt.Println("[gURL] Warning:","Invalid header detected, not sent -> ", "\""+headAndValue[0]+"\"")   
-            
-        }
-    }
+    if len(headers) > 0 {
     
-    // response handling
+        // set custom headers if provided.
+        for _,header := range headers{
+            header = strings.ReplaceAll(header," ","")
+            headAndValue := strings.Split(header, ":")
+            
+            if len(headAndValue) >= 2 && headAndValue[0] != ""{
+                req.Header.Set(headAndValue[0], headAndValue[1])
+            } else{
+                fmt.Println("[gURL] Warning:","Invalid header detected, not sent -> ", "\""+headAndValue[0]+"\"")   
+                
+            }
+        }
+        
+    }
+
+    // common response handling
     response, err := client.Do(req)
     if err != nil{
         err := err.Error()
@@ -102,12 +121,44 @@ func Request(url, reqtype, data, outfile string, headers []string, prettyPrint b
 
     defer response.Body.Close()
  
+ 
+    //handle head request type response
+    if reqtype == "HEAD"{
+    
+        tempSlice := make([]string, 0, len(response.Header))
+        
+        fmt.Println(response.Proto, response.Status)
+        for header, values := range response.Header {
+            tempSlice = append(tempSlice, header+": "+values[0])
+    	}
+    	
+        sort.Strings(tempSlice)
+    	for _, value := range tempSlice{
+    	    fmt.Println(value)
+    	}
+	    return
+	}
+	
+	// --raw-request to print the request headers too.
+	if rawreq{
+    	rawRequest := req.Method + " " + req.URL.RequestURI() + " " + req.Proto + "\r\n"
+    	for header, values := range req.Header {
+    		for _, value := range values {
+    			rawRequest += header + ": " + value + "\r\n"
+    		}
+	    }
+    	fmt.Println(rawRequest)
+        fmt.Println(data,"\n\n")    	    
+	}
+    
+	
     //extract response   
     body, _ := ioutil.ReadAll(response.Body)
 
     // pretty print json if required
     if isJson(string(body)) {
 	    
+	    //if pprint is mentioned
 	    if prettyPrint {
     		var prettyJson bytes.Buffer
     		err := json.Indent(&prettyJson, body, "", "  ")
@@ -144,7 +195,7 @@ func main(){
 
     var url, outfile, reqtype, data string
     var headers headerSlice
-    var prettyPrint bool
+    var prettyPrint, raw_request bool
     
     //flags
     flag.StringVar(&url, "u", "", "URL") 
@@ -155,6 +206,8 @@ func main(){
     flag.StringVar(&data, "data", "", "Specify POST Data (form/JSON) ")
     
     flag.BoolVar(&prettyPrint, "pprint", false, "Pretty print JSON Response") 
+    flag.BoolVar(&raw_request, "raw-request", false, "Print request in raw format (with request headers and body)")
+    
     
             
     flag.Parse()
@@ -169,16 +222,29 @@ func main(){
                 return
             }
             
-            Request(url, "GET", data, outfile, headers, prettyPrint)
+            Request(url, "GET", data, outfile, headers, prettyPrint, raw_request)
 
         case "POST":
             if data == ""{
                 fmt.Println("[gURL]  Sending with Empty body.")
             }
-            Request(url, "POST", data, outfile, headers, prettyPrint) 
+            Request(url, "POST", data, outfile, headers, prettyPrint, raw_request) 
               
+        case "PUT":
+            Request(url, "PUT", data, outfile, headers, prettyPrint, raw_request)
+        
+        case "HEAD":
+            Request(url, "HEAD", data, outfile, headers, prettyPrint,raw_request)
+        
+        case "DELETE":
+            Request(url, "DELETE", data, outfile, headers, prettyPrint, raw_request)
+                
+        case "PATCH":
+            Request(url, "PATCH", data, outfile, headers, prettyPrint, raw_request)
+            
         default:
-            Request(url,"GET", data, outfile, headers, prettyPrint)
+            fmt.Println("[gURL] Warning:","Unknown request type","\""+reqtype+"\"","stated. Sending GET")
+            Request(url,"GET", data, outfile, headers, prettyPrint, raw_request)
     }       
     
 }
