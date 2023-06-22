@@ -30,7 +30,7 @@ const (
     Yellow       = "\033[33m" 
     Cyan         = "\033[38;5;85m" 
     Reset        = "\033[0m"
-    GreenBg      = "\033[42m" // \033[38;5;118m
+    GreenBg      = "\033[42m" 
     CyanBg       = "\033[46m"
 )
 
@@ -124,7 +124,7 @@ func MakeRequest(args RequestFlags) {
         req.Header.Set("Content-Type","application/x-www-form-urlencoded")
     }
     
-    req.Header.Set("User-Agent","gURL/0.0.1")
+    req.Header.Set("User-Agent","gurl/1.0.0")
     req.Header.Set("Accept","*/*")    
     
     if len(headers) > 0 {
