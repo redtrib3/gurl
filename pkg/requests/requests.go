@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	UrlParser "net/url"  
 )
 
 type HeaderList []string
@@ -23,7 +24,6 @@ func (h *HeaderList) Set(value string) error {
 }
 
 const (
-
     Black        = "\033[38;5;232m"
     Red          = "\033[38;5;196m"   
     Green        = "\033[32m"
@@ -34,10 +34,11 @@ const (
     CyanBg       = "\033[46m"
 )
 
-
+// functions for cmdline colors
 func Colorize(text, ansi string) string {
     return ansi + text + Reset
 }
+
 
 type RequestFlags struct {
 	URL         string
@@ -48,6 +49,9 @@ type RequestFlags struct {
 	PrettyPrint bool
 	RawRequest  bool
 	UploadPath  string
+	Colorize     bool
+	AutoRedirect bool
+	Proxy       string
 }
 
 func isJSON(jstring string) bool {
@@ -55,11 +59,26 @@ func isJSON(jstring string) bool {
 	return json.Unmarshal([]byte(jstring), &js) == nil
 }
 
+
+func UrlFix(url string) string{
+    
+    urlparts := strings.SplitN(url, "://", 2)
+    if len(urlparts) < 2 {
+        fmt.Println(Colorize("[gURL] Warning:", Cyan),"Protocol not specified/detected in url, Using HTTP.")
+        url = "http://" + url
+        return url
+    } 
+    
+    return url
+}
+
 func MakeRequest(args RequestFlags) {
 	
     var req *http.Request
     var err error
     var reqData *strings.Reader
+    var transport *http.Transport
+    
     
     url     := args.URL
     reqtype := args.RequestType
@@ -69,13 +88,38 @@ func MakeRequest(args RequestFlags) {
     pprint  := args.PrettyPrint
     rawreq  := args.RawRequest
     uploadpath := args.UploadPath
+    colorize := args.Colorize
+    autoRedirect := args.AutoRedirect
+    //proxyURI := args.Proxy
     
-    // starting client
-    client := &http.Client{
-        Transport: &http.Transport{
-        DisableCompression: true,
-        },
+     
+    if args.Proxy != "" {
+    
+        proxy, _ := UrlParser.Parse(args.Proxy)
+        transport = &http.Transport{
+            DisableCompression: true,
+            Proxy: http.ProxyURL(proxy),
+        }
+        
+    } else {
+    
+        transport = &http.Transport{
+            DisableCompression: true,
+            Proxy: nil,
+        }
     }
+    
+	// client confs
+    client := &http.Client{
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if autoRedirect {
+				return nil // Allow redirects
+			} else {
+				return http.ErrUseLastResponse // Prevent redirects
+			}
+		},
+	}
     
     switch reqtype {
         case "GET", "HEAD", "DELETE":
@@ -124,7 +168,7 @@ func MakeRequest(args RequestFlags) {
         req.Header.Set("Content-Type","application/x-www-form-urlencoded")
     }
     
-    req.Header.Set("User-Agent","gurl/1.0.0")
+    req.Header.Set("User-Agent","gurl/1.1")
     req.Header.Set("Accept","*/*")    
     
     if len(headers) > 0 {
@@ -153,6 +197,7 @@ func MakeRequest(args RequestFlags) {
             case strings.Contains(err, "connection refused"):
                 fmt.Println(Colorize("[gURL] Error: ", Red),"Connection refused to URL")
                 os.Exit(0)
+            
             default:
                 fmt.Println(Colorize("[gURL] Error occured: ",Red), err)
                 return
@@ -184,8 +229,9 @@ func MakeRequest(args RequestFlags) {
 	
 	
 	if rawreq {
-        fmt.Printf("\n"+ CyanBg + Black +" Request " + Reset +"\n")
-    	rawRequest := "\n" + Colorize(req.Method,Cyan) + " " + req.URL.RequestURI() + " " + req.Proto + "\r\n"
+	
+        fmt.Printf("\n%s %s Request %s\n",CyanBg, Black,Reset)
+        rawRequest := fmt.Sprintf("\n%s %s %s\r\n", Colorize(req.Method,Cyan), req.URL.RequestURI(), req.Proto)
     	for header, values := range req.Header {
     		for _, value := range values {
     			rawRequest += Colorize(header, Green) + ": " + value + "\r\n"
@@ -193,7 +239,18 @@ func MakeRequest(args RequestFlags) {
 	    }
     	fmt.Println(rawRequest)
         fmt.Println(data,"\n")
-        fmt.Printf(GreenBg+Black+" Response "+Reset+"\n\n") // add bg-fg color here!    	    
+        
+        
+        fmt.Printf("%s %s Response %s\n\n",GreenBg,Black,Reset)
+        rawResponse := fmt.Sprintf("%s %s\r\n", response.Status, response.Proto)
+        for header, values := range response.Header {
+            for _, value := range values {
+                rawResponse += Colorize(header, Green) + ": " + value + "\r\n"
+            }         
+        } 	
+        fmt.Println(rawResponse)    
+        
+        
 	}
     
 	
@@ -211,15 +268,29 @@ func MakeRequest(args RequestFlags) {
 	    		fmt.Println(Colorize("[gURL] Error indenting JSON.", Red))
     			fmt.Println(string(body))
 	    		return
-	    	}
-		
-		fmt.Println(prettyJson.String())
+            }
+		    if colorize{
+		        fmt.Println(JSONhighlight(prettyJson.String()))
+		    } else {
+		        fmt.Println(prettyJson.String())
+		    }
+		    
 		
 	    } else {
-		    fmt.Println(string(body))
+	        if colorize {
+	            fmt.Println(JSONhighlight(string(body)))
+	        } else {
+	            fmt.Println(string(body))
+	        }
+		    
 	    }
     } else {
-	    fmt.Println(string(body))
+        if colorize{
+            fmt.Println(HTMLhighlight(string(body)))  
+        } else {
+            fmt.Println(string(body))
+        }
+    	 
     }
         
     // writing outfile

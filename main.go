@@ -7,9 +7,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/redtrib3/gurl/pkg/requests"
 	"os"
+    "github.com/redtrib3/gurl/pkg/requests"
 )
+
+
 
 func main() {
 	var options requests.RequestFlags
@@ -22,9 +24,12 @@ func main() {
 	flag.BoolVar(&options.PrettyPrint, "pprint", false, "Pretty print JSON response")
 	flag.BoolVar(&options.RawRequest, "raw-request", false, "Print request in raw format (with request headers and body)")
 	flag.StringVar(&options.UploadPath, "upload-file", "", "Upload file to remote endpoint. (default method - PUT)")
-
+    flag.BoolVar(&options.Colorize,"c",false,"prints colored/syntax highlighted response body.")
+    flag.BoolVar(&options.AutoRedirect,"redirect", false, "Follow redirects (disabled by default) ")
+    flag.StringVar(&options.Proxy,"proxy","","Specify Proxy URI in format -> [protocol]://host[:port] ")
+    
     flag.Usage = func() {
-        fmt.Fprintf(os.Stderr, "Usage %s [options...] \n", os.Args[0])
+        fmt.Fprintf(os.Stderr, "Usage %s [options...]  \n", os.Args[0])
         
         fmt.Printf("\n%24v %36v %38v\n",requests.Colorize("flag",requests.Cyan),requests.Colorize("defaults", requests.Cyan),requests.Colorize("description",requests.Cyan))
         fmt.Printf("%10v %22v %25v","----","--------","----------\n")
@@ -41,11 +46,14 @@ func main() {
     }
     
 	flag.Parse()
-
+    
     if options.URL == "" {
         flag.Usage()
-        os.Exit(0)
+        fmt.Println(requests.Colorize("\n[gURL] Error:",requests.Red),"flag '-u' required but not specified")
+        return
     }
+    
+    options.URL = requests.UrlFix(options.URL)
     
 	switch options.RequestType {
 	case "GET":
