@@ -26,7 +26,7 @@ If you have the GO version >= 1.16  installed:
 Information on usage can be found by using --help/-h flag.
 `./gurl --help`
 
-  Usage gurl [options...]  
+  `Usage gurl [options...]  `
 ```
       flag               defaults              description
       ----               --------               ----------
