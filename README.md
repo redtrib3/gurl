@@ -63,4 +63,12 @@ Other examples: <br>
 
 ### Raw requests:<br>
 
-![gurlraw](https://github.com/redtrib3/gurl/assets/68897241/6473bf61-e0ef-4a9f-9e2f-60e2f2acd062)
+![gurl_chal](https://github.com/redtrib3/gurl/assets/68897241/b7e58421-4988-4473-a617-1e4859d48a29)
+
+### Syntax Highlighting:
+
+HTML Syntax Highlight: <br>
+![htmlhigh](https://github.com/redtrib3/gurl/assets/68897241/53788d95-7904-427b-a5b0-e7cc0952f040)
+
+<br>JSON Syntax Highlight:<br>
+![jsonhigh](https://github.com/redtrib3/gurl/assets/68897241/9feea2cf-d926-4047-9350-508526800a68)
