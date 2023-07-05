@@ -26,18 +26,22 @@ If you have the GO version >= 1.16  installed:
 Information on usage can be found by using --help/-h flag.
 `./gurl --help`
 
-      flags               defaults              description
+  Usage gurl [options...]  
+```
+      flag               defaults              description
       ----               --------               ----------
       -H            |                |     Specify Header separated by colon (multiple Headers are allowed) 
+      -c            |     false      |     prints colored/syntax highlighted response body. 
       -data         |                |     Specify POST data (form-data/JSON) 
       -m            |     GET        |     Specify the request Method (GET, POST, PUT, DELETE, PATCH) 
       -o            |                |     Save response to a file. 
       -pprint       |     false      |     Pretty print JSON response 
+      -proxy        |                |     Specify Proxy URI in format -> [protocol]://host[:port]  
       -raw-request  |     false      |     Print request in raw format (with request headers and body) 
+      -redirect     |     false      |     Follow redirects (disabled by default)  
       -u            |                |     URL to remote/local endpoint 
       -upload-file  |                |     Upload file to remote endpoint. (default method - PUT)
-
-
+```
 ### Example usages:
 
 Send a GET request:\
