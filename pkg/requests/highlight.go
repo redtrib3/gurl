@@ -8,9 +8,9 @@ import (
 func HTMLhighlight(htmlCode string) string {
 	// Define the regular expressions for highlighting
 	tagPattern := regexp.MustCompile(`(<\w+|\w+>|<\/\w+>)`)
-	attributePattern := regexp.MustCompile(`(\w+)(=)`)
+	attributePattern := regexp.MustCompile(`([\w-]+)(=)`)
 	commentPattern := regexp.MustCompile(`<!--[\s\S]*?-->`)
-    quotePattern := regexp.MustCompile(`(["][a-zA-Z0-9_//\ \)\(-;:.]*)(.*?)`)
+    quotePattern := regexp.MustCompile(`(["][a-zA-Z0-9_//\ \)\(-;:.\{\}&?]*)(.*?)`)
     
 	// Apply syntax highlighting
 	htmlCode = tagPattern.ReplaceAllString(htmlCode, "\x1b[34m$1\x1b[0m")         // Blue 
