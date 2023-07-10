@@ -27,6 +27,7 @@ func main() {
     flag.BoolVar(&options.Colorize,"c",false,"prints colored/syntax highlighted response body.")
     flag.BoolVar(&options.AutoRedirect,"redirect", false, "Follow redirects (disabled by default) ")
     flag.StringVar(&options.Proxy,"proxy","","Specify Proxy URI in format -> [protocol]://host[:port] ")
+    flag.BoolVar(&options.IsQuiet, "quiet",false,"Supress explicit Warning/Info messages.")
     
     flag.Usage = func() {
         fmt.Fprintf(os.Stderr, "Usage %s [options...]  \n", os.Args[0])
@@ -53,13 +54,13 @@ func main() {
         return
     }
     
-    options.URL = requests.UrlFix(options.URL)
+    options.URL = requests.UrlFix(options.URL, options.IsQuiet)
     
 	switch options.RequestType {
 	case "GET":
 		if options.Data != "" {
 			flag.Usage()
-			fmt.Println(requests.Colorize("\n[gURL] Alert:", requests.Cyan), "Cannot send body with GET, use flag -m to change request method.")
+			fmt.Println(requests.Colorize("\n[gURL] Error:", requests.Red), "Cannot send body with GET, use flag -m to change request method.")
 			return
 		}
 
@@ -67,7 +68,7 @@ func main() {
 
 	case "POST":
 		if options.Data == "" && options.UploadPath == "" {
-			fmt.Println(requests.Colorize("[gURL] Sending with empty body.", requests.Cyan))
+			requests.PrintQuiet("Sending with empty body.", "warning", options.IsQuiet)
 		} 
 
 		requests.MakeRequest(options)
@@ -76,7 +77,7 @@ func main() {
 		requests.MakeRequest(options)
 
 	default:
-		fmt.Println(requests.Colorize("[gURL] Warning:", requests.Cyan), "Unknown request method type", "\""+options.RequestType+"\"", "stated. Sending GET.")
+		requests.PrintQuiet("Unknown request method type " + "\""+options.RequestType+"\"" + ". Sending GET.","warning",options.IsQuiet)
 		options.RequestType = "GET"
 		requests.MakeRequest(options)
 	}

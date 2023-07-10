@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"sort"
 	"strings"
 	UrlParser "net/url"  
 )
@@ -34,7 +33,7 @@ const (
     CyanBg       = "\033[46m"
 )
 
-// functions for cmdline colors
+// function for cmdline colors
 func Colorize(text, ansi string) string {
     return ansi + text + Reset
 }
@@ -52,7 +51,9 @@ type RequestFlags struct {
 	Colorize     bool
 	AutoRedirect bool
 	Proxy       string
+	IsQuiet       bool
 }
+
 
 func isJSON(jstring string) bool {
 	var js json.RawMessage
@@ -60,11 +61,55 @@ func isJSON(jstring string) bool {
 }
 
 
-func UrlFix(url string) string{
+func isBinaryResponse(contentType string) bool {
+
+    binaryTypes := []string{
+        "application/octet-stream",
+        "application/pdf",
+        "application/zip",
+        "application/x-tar",
+        "application/x-gzip",
+        "application/x-bzip2",
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/bmp",
+        "image/svg+xml",
+        "audio/mpeg",
+        "audio/wav",
+        "video/mp4",
+        "video/mpeg",
+        "video/quicktime",
+        "video/x-msvideo",
+    }
+    
+    for _, binType := range binaryTypes {
+        if contentType == binType {
+            return true
+        }
+    }
+    return false
+}
+
+
+var isQuiet bool
+
+func PrintQuiet(msg string, ptype string, isQuiet bool){
+    if !isQuiet {
+        if ptype == "warning"{
+            fmt.Println(Colorize("[gURL] Warning:",Cyan),msg)
+        } else {
+                fmt.Println(Colorize("[gURL] INFO:",Cyan),msg)
+        }
+    }
+}
+
+
+func UrlFix(url string, isQuiet bool) string{
     
     urlparts := strings.SplitN(url, "://", 2)
     if len(urlparts) < 2 {
-        fmt.Println(Colorize("[gURL] Warning:", Cyan),"Protocol not specified/detected in url, Using HTTP.")
+        PrintQuiet("Protocol not specified/detected in url, Using HTTP.", "warning", isQuiet)
         url = "http://" + url
         return url
     } 
@@ -74,11 +119,12 @@ func UrlFix(url string) string{
 
 func MakeRequest(args RequestFlags) {
 	
-    var req *http.Request
-    var err error
-    var reqData *strings.Reader
-    var transport *http.Transport
-    
+    var (
+        req *http.Request
+        err error
+        reqData *strings.Reader
+        transport *http.Transport
+    )
     
     url     := args.URL
     reqtype := args.RequestType
@@ -90,8 +136,7 @@ func MakeRequest(args RequestFlags) {
     uploadpath := args.UploadPath
     colorize := args.Colorize
     autoRedirect := args.AutoRedirect
-    //proxyURI := args.Proxy
-    
+    isQuiet = args.IsQuiet
      
     if args.Proxy != "" {
     
@@ -168,7 +213,7 @@ func MakeRequest(args RequestFlags) {
         req.Header.Set("Content-Type","application/x-www-form-urlencoded")
     }
     
-    req.Header.Set("User-Agent","gurl/1.1")
+    req.Header.Set("User-Agent","gurl/1.2")
     req.Header.Set("Accept","*/*")    
     
     if len(headers) > 0 {
@@ -181,11 +226,10 @@ func MakeRequest(args RequestFlags) {
             if len(headAndValue) >= 2 && headAndValue[0] != ""{
                 req.Header.Set(headAndValue[0], headAndValue[1])
             } else{
-                fmt.Println(Colorize("[gURL] Warning:", Cyan),"Invalid header detected, not sent -> ", "\""+headAndValue[0]+"\"")   
+                PrintQuiet("Invalid header detected, not sent -> "+ "\""+headAndValue[0]+"\"", "warning", isQuiet) 
                 
             }
         }
-        
     }
     
     // common response handling
@@ -211,18 +255,14 @@ func MakeRequest(args RequestFlags) {
     //handle HEAD request 
     if reqtype == "HEAD"{
     
-        tempSlice := make([]string, 0, len(response.Header))
-        
-        fmt.Println(response.Proto, response.Status)
+	    rawResponse := fmt.Sprintf("%s %s\r\n", response.Status, response.Proto)
         for header, values := range response.Header {
-            tempSlice = append(tempSlice, header+": "+values[0])
-    	}
-    	
-        sort.Strings(tempSlice)
-    	for _, value := range tempSlice{
-    	    fmt.Println(value)
-    	}
-	    return
+            for _, value := range values {
+                rawResponse += Colorize(header, Green) + ": " + value + "\r\n"
+            }         
+        } 	
+        fmt.Println(rawResponse)    
+        return    
 	}
 	
 	// --raw-request to print the request headers too.
@@ -253,56 +293,71 @@ func MakeRequest(args RequestFlags) {
         
 	}
     
-	
+    //check if resp is binary file
+    respIsBin := false
+    ResponseType := response.Header.Get("Content-type") 
+    if isBinaryResponse(ResponseType) {
+        if (outfile == ""){
+            fmt.Println(Colorize("[gURL] Forced-Warning:", Cyan),"Response has Binary Output, use -o to output to a file.",)
+            PrintQuiet("Response type as per Content-type Header is "+ResponseType, "INFO", isQuiet)
+            return
+        } else {
+            respIsBin = true
+        }
+    }
+
+
     //extract response   
     body, _ := ioutil.ReadAll(response.Body)
+    
+    if !(respIsBin) {
 
-    // pretty print json if required
-    if isJSON(string(body)) {
-	    
-	    //if pprint is mentioned
-	    if pprint {
-    		var prettyJson bytes.Buffer
-    		err := json.Indent(&prettyJson, body, "", "  ")
-    		if err != nil {
-	    		fmt.Println(Colorize("[gURL] Error indenting JSON.", Red))
-    			fmt.Println(string(body))
-	    		return
-            }
-		    if colorize{
-		        fmt.Println(JSONhighlight(prettyJson.String()))
-		    } else {
-		        fmt.Println(prettyJson.String())
-		    }
-		    
-		
+    	// pretty print json if required
+    	if isJSON(string(body)) {
+    
+    		//if pprint is mentioned
+    		if pprint {
+    			var prettyJson bytes.Buffer
+    			err := json.Indent(&prettyJson, body, "", "  ")
+    			if err != nil {
+    				fmt.Println(Colorize("[gURL] Error indenting JSON.", Red))
+    				fmt.Println(string(body))
+	    			return
+    			}
+    			if colorize {
+    				fmt.Println(JSONhighlight(prettyJson.String()))
+    			} else {
+        				fmt.Println(prettyJson.String())
+    			}
+    
+    		} else {
+    			if colorize {
+    				fmt.Println(JSONhighlight(string(body)))
+	    		} else {
+        				fmt.Println(string(body))
+    			}
+    
+    		}
 	    } else {
-	        if colorize {
-	            fmt.Println(JSONhighlight(string(body)))
-	        } else {
-	            fmt.Println(string(body))
-	        }
-		    
-	    }
-    } else {
-        if colorize{
-            fmt.Println(HTMLhighlight(string(body)))  
-        } else {
-            fmt.Println(string(body))
-        }
-    	 
+		    if colorize {
+    			fmt.Println(HTMLhighlight(string(body)))
+    		} else {
+    			fmt.Println(string(body))
+    		}   
+
+	     }
     }
-        
+ 
     // writing outfile
     if outfile != "" {
         reqBytes:= []byte(string(body))
         err := ioutil.WriteFile(outfile,reqBytes,0644)
         if err != nil{
-            fmt.Println(Colorize("[gURL] Error writing outfile" + outfile, Red))
+            fmt.Println(Colorize("[gURL] Error:",Red),err )
             return
         }
         
-        fmt.Println(Colorize("[gURL] Info:", Cyan),"Data written to "+outfile)
+        PrintQuiet("Data written to "+outfile,"INFO", isQuiet)
     }
     
 }
