@@ -7,8 +7,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/redtrib3/gurl/pkg/requests"
 	"os"
-    "github.com/redtrib3/gurl/pkg/requests"
 )
 
 

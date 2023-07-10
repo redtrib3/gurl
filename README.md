@@ -37,10 +37,12 @@ Information on usage can be found by using --help/-h flag.
       -o            |                |     Save response to a file. 
       -pprint       |     false      |     Pretty print JSON response 
       -proxy        |                |     Specify Proxy URI in format -> [protocol]://host[:port]  
+      -quiet        |     false      |     Supress explicit Warning/Info messages. 
       -raw-request  |     false      |     Print request in raw format (with request headers and body) 
       -redirect     |     false      |     Follow redirects (disabled by default)  
       -u            |                |     URL to remote/local endpoint 
-      -upload-file  |                |     Upload file to remote endpoint. (default method - PUT)
+      -upload-file  |                |     Upload file to remote endpoint. (default method - PUT) 
+
 ```
 ### Example usages:
 

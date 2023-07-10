@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	UrlParser "net/url"
 	"os"
-	"strings"
-	UrlParser "net/url"  
+	"strings"  
 )
 
 type HeaderList []string
@@ -277,8 +277,9 @@ func MakeRequest(args RequestFlags) {
     			rawRequest += Colorize(header, Green) + ": " + value + "\r\n"
     		}
 	    }
+    	
     	fmt.Println(rawRequest)
-        fmt.Println(data,"\n")
+        fmt.Println(data, "\n")
         
         
         fmt.Printf("%s %s Response %s\n\n",GreenBg,Black,Reset)
